@@ -1,0 +1,16 @@
+# Baseline flow — docker.io node + docker.io nginx.
+# Larger image, larger attack surface, and historically heavier CVE load.
+
+FROM node:20-bookworm AS builder
+WORKDIR /app
+COPY package.json ./
+RUN npm install --no-audit --no-fund
+COPY . .
+RUN npm run build
+
+FROM nginx:1.27
+COPY --from=builder /app/dist /usr/share/nginx/html
+# Baseline nginx listens on 80 by default; rewrite conf to match chainguard's 8080
+# so the Helm chart can target a single port regardless of flavor.
+COPY nginx.conf /etc/nginx/nginx.conf
+EXPOSE 8080

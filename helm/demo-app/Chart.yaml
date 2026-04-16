@@ -1,0 +1,10 @@
+apiVersion: v2
+name: demo-app
+description: |
+  Secure Image Catalog — 3-tier demo app for the JFrog + Chainguard POC.
+  Pulls images from Artifactory. A single `flavor` value toggles between
+  chainguard-based and baseline-based images so you can deploy both side
+  by side and compare CVEs in Xray.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

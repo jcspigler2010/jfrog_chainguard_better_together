@@ -1,0 +1,85 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-postgres
+  labels: {{- include "demoapp.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  POSTGRES_DB: {{ .Values.postgres.database | quote }}
+  POSTGRES_USER: {{ .Values.postgres.user | quote }}
+  POSTGRES_PASSWORD: {{ .Values.postgres.password | quote }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-postgres-data
+  labels: {{- include "demoapp.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.postgres.storageSize }}
+  {{- with .Values.postgres.storageClassName }}
+  storageClassName: {{ . }}
+  {{- end }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels: {{- include "demoapp.labels" . | nindent 4 }}
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: postgres
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        image.flavor: {{ .Values.flavor }}
+    spec:
+      {{- with .Values.registry.pullSecret }}
+      imagePullSecrets:
+        - name: {{ . }}
+      {{- end }}
+      containers:
+        - name: postgres
+          image: {{ include "demoapp.postgresImage" . | quote }}
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: {{ .Release.Name }}-postgres
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ .Values.postgres.user }}"]
+            initialDelaySeconds: 5
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "1",    memory: "1Gi" }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels: {{- include "demoapp.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: postgres
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+{{- end }}

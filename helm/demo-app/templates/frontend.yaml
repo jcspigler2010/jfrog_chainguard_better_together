@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-frontend
+  labels: {{- include "demoapp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      app: catalog-frontend
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: catalog-frontend
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        image.flavor: {{ .Values.flavor }}
+    spec:
+      {{- with .Values.registry.pullSecret }}
+      imagePullSecrets:
+        - name: {{ . }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: frontend
+          image: {{ include "demoapp.image" (list . .Values.frontend) | quote }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /, port: 8080 }
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet: { path: /, port: 8080 }
+            initialDelaySeconds: 10
+          resources: {{- toYaml .Values.frontend.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false   # nginx uses /tmp; chart mounts emptyDir below
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-frontend
+  labels: {{- include "demoapp.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: catalog-frontend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

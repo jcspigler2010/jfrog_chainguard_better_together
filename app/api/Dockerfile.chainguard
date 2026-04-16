@@ -1,0 +1,22 @@
+# Chainguard flow — minimal, rootless, distroless Python.
+# Base images:
+#   builder:  cgr.dev/chainguard/python:latest-dev   (has pip + build tools)
+#   runtime:  cgr.dev/chainguard/python:latest       (distroless, no shell)
+#
+# Result is a tiny image (~60MB) with zero known CVEs at build time.
+
+FROM cgr.dev/chainguard/python:latest-dev AS builder
+WORKDIR /app
+COPY requirements.txt .
+RUN python -m venv /venv \
+ && /venv/bin/pip install --no-cache-dir -r requirements.txt
+
+FROM cgr.dev/chainguard/python:latest
+WORKDIR /app
+COPY --from=builder /venv /venv
+COPY main.py .
+ENV PATH="/venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+EXPOSE 8000
+ENTRYPOINT ["/venv/bin/uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

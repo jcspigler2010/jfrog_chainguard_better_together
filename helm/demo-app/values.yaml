@@ -1,0 +1,60 @@
+# Deploy one instance per flavor:
+#   helm install catalog-cg  ./helm/demo-app -n catalog-cg --create-namespace \
+#     --set flavor=chainguard --set ingress.host=catalog-cg.lab.local
+#
+#   helm install catalog-bl  ./helm/demo-app -n catalog-bl --create-namespace \
+#     --set flavor=baseline   --set ingress.host=catalog-bl.lab.local
+
+# chainguard | baseline — controls which image tag gets pulled.
+flavor: chainguard
+
+# Artifactory registry + repo key (the virtual repo aggregating both locals).
+registry:
+  host: artifactory.lab.local
+  repo: docker-virtual
+  # imagePullSecret referencing a docker-registry secret in the target ns.
+  # Create with:
+  #   kubectl -n <ns> create secret docker-registry artifactory-pull \
+  #     --docker-server=artifactory.lab.local --docker-username=<user> \
+  #     --docker-password=<token>
+  pullSecret: artifactory-pull
+
+api:
+  image:
+    repository: catalog-api
+    # tag is derived from .Values.flavor if left blank
+    tag: ""
+  replicas: 2
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits:   { cpu: "500m", memory: "512Mi" }
+
+frontend:
+  image:
+    repository: catalog-frontend
+    tag: ""
+  replicas: 2
+  resources:
+    requests: { cpu: "50m",  memory: "64Mi" }
+    limits:   { cpu: "200m", memory: "128Mi" }
+
+postgres:
+  # For a lab: bundled in-cluster Postgres. For prod: externalize.
+  enabled: true
+  image: "postgres:16-alpine"   # baseline by default; override per flavor below
+  chainguardImage: "cgr.dev/chainguard/postgres:latest"
+  storageSize: 5Gi
+  # storageClassName: longhorn
+  database: catalog
+  user: catalog
+  password: catalog             # override with --set or external Secret
+
+ingress:
+  enabled: true
+  className: nginx
+  host: catalog.lab.local
+  tls:
+    enabled: true
+    secretName: catalog-tls
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"

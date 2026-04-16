@@ -1,0 +1,72 @@
+# values-artifactory.yaml
+# Helm values for the jfrog/artifactory chart on RKE2.
+# Consumed by install-artifactory.sh which also injects secrets.
+#
+# Chart:  https://github.com/jfrog/charts/tree/master/stable/artifactory
+# Docs:   https://jfrog.com/help/r/jfrog-installation-setup-documentation/install-artifactory-single-node-with-helm
+
+artifactory:
+  # Two replicas is the minimum for HA; use 1 for a lab POC.
+  replicaCount: 1
+
+  # Run as the baked-in non-root user.
+  podSecurityContext:
+    runAsUser: 1030
+    runAsGroup: 1030
+    fsGroup: 1030
+
+  persistence:
+    enabled: true
+    size: 200Gi
+    # storageClassName: longhorn   # uncomment if you use Longhorn
+    # RKE2 default is local-path; override for production.
+
+  # Resource budget sized for a single-node lab; bump for prod.
+  resources:
+    requests:
+      cpu: "1"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+
+  # Enable the Docker OCI subsystem (needed for container registry flows).
+  #   - image registry pushed via: docker login artifactory.<DOMAIN>
+  #   - repository path:           artifactory.<DOMAIN>/<repo-key>/<image>:<tag>
+  setSecurityContext: true
+
+# Bundled Postgres is fine for a lab. For prod use an external managed DB.
+postgresql:
+  enabled: true
+  postgresqlPassword: "CHANGEME-postgres"   # install script overrides via --set
+  persistence:
+    size: 50Gi
+
+# Nginx sidecar fronts Artifactory.
+nginx:
+  enabled: true
+  service:
+    type: ClusterIP     # expose via Ingress (below) rather than LB
+  tlsSecretName: jfrog-artifactory-tls
+
+# Ingress: edit `hosts:` to your domain before installing.
+ingress:
+  enabled: true
+  className: nginx
+  defaultBackend:
+    enabled: false
+  hosts:
+    - artifactory.lab.local
+  tls:
+    - secretName: jfrog-artifactory-tls
+      hosts:
+        - artifactory.lab.local
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"         # allow big Docker pushes
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    cert-manager.io/cluster-issuer: "lab-ca"                 # adjust or remove
+
+# Master/join keys injected by install-artifactory.sh (do NOT hardcode).
+# masterKey:
+# joinKey:

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jfrog
+  labels:
+    app.kubernetes.io/part-of: jfrog-platform
+    pod-security.kubernetes.io/enforce: privileged

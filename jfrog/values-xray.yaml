@@ -1,0 +1,55 @@
+# values-xray.yaml
+# Helm values for the jfrog/xray chart. Must share joinKey with Artifactory.
+
+postgresql:
+  enabled: true
+  postgresqlPassword: "CHANGEME-xray-postgres"
+  persistence:
+    size: 50Gi
+
+rabbitmq:
+  enabled: true
+  persistence:
+    size: 20Gi
+
+common:
+  # Must match the Artifactory joinKey.
+  # joinKey:        injected by install-xray.sh
+  jfrogUrl: "http://artifactory.jfrog.svc.cluster.local"
+
+# Resource footprint: Xray is hungry (indexer + analysis + server + persist).
+server:
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+analysis:
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+indexer:
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+persist:
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "1Gi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
